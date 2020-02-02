@@ -1,0 +1,86 @@
+---
+title: "InClass"
+author: "Group 8"
+date: "10/30/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## **Step 5: in class test**
+
+```{r}
+setwd("/Users/mengyang/Documents/GitHub/fall2019-proj3-sec2--grp8/doc")
+test_dir <- "../data/test_set/" # This will be modified for different data sets.
+test_image_dir <- paste(test_dir, "images/", sep="")
+test_pt_dir <- paste(test_dir,  "points/", sep="")
+```
+
+### Step 5.1: import test data
+
+```{r}
+n_files <- length(list.files(test_image_dir))
+readMat.matrix <- function(index){
+     return(round(readMat(paste0(test_pt_dir, sprintf("%04d", index), ".mat"))[[1]],0))
+}
+
+#load fiducial points
+test_fiducial_pt_list <- lapply(1:n_files, readMat.matrix)
+save(test_fiducial_pt_list, file="../output/test_fiducial_pt_list.RData")
+```
+
+```{r}
+load("../output/test_fiducial_pt_list.RData")
+```
+
+### Step 5.2: baseline model
+
+```{r}
+source("../lib/feature.R")
+test_dat_test_base <- feature(test_fiducial_pt_list)
+```
+
+```{r}
+test_baseline.pred = predict.gbm(object = baseline,
+                     newdata = test_dat_test_base,
+                     n.trees = 100,
+                     type = "response")
+#prediction result
+test_baseline.labels = colnames(test_baseline.pred)[apply(test_baseline.pred, 1, which.max)]
+#test_baseline.cm = confusionMatrix(test_dat_test_base$emotion_idx,
+#                                   as.factor(as.numeric(test_baseline.labels)))
+#print(test_baseline.cm$byClass[1])
+```
+
+```{r}
+test_result_baseline <- as.numeric(test_baseline.labels)
+write.csv(test_result_baseline, file = "../output/test_result_baseline.csv")
+```
+
+### Step 5.3: our improved model
+
+```{r}
+source("../lib/feature.R")
+test_fiducial_pt_list_lm <- lapply(test_fiducial_pt_list, function(mat){return(mat[leftmid_idx,])})
+test_dat_test <- feature(test_fiducial_pt_list_lm)
+test_dat_test <- test_dat_test[, -dup_horiz]
+test_x_test <- data.frame(predict(pca, test_dat_test[,-1587])[,1:n.pc]) 
+colnames(test_x_test) <- c(1:n.pc)
+test_y_test <- test_dat_test[1587]
+test_test <- cbind(test_x_test, test_y_test)
+```
+
+
+```{r}
+test_lda.test.pred = predict(lda.model, test_test[-dim(test_test)[2]])
+#test accuracy
+#confusionMatrix(test_lda.test.pred$class, test_test$emotion_idx)$overall[1]
+```
+
+```{r}
+test_result <- as.numeric(test_lda.test.pred$class)
+write.csv(test_result, file = "../output/test_result.csv")
+```
